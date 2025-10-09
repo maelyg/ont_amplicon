@@ -1,8 +1,8 @@
 id: ont_amplicon_assembly
 name: Nanopore amplicon assembly
 description: Per-sample assembly of barcode amplicons from raw Nanopore reads
-version: 0.11
-website: https://github.com/qcif/daff-ont-amplicon
+version: 0.12
+website: https://github.com/maelyg/ont_amplicon/
 author: Maely Gauthier and Cameron Hyde
 # logo: https://github.com/qcif/
 
@@ -15,7 +15,7 @@ workflow:
     - name: Amplicon assembly
       params:
         blastn_db: /mnt/data/blast/core_nt/core_nt
-        blastn_COI: /mnt/data/metacox1/MetaCOXI
+        blastn_COI: /mnt/data/blast/metacox1/MetaCOXI.fasta
         taxdump: /mnt/data/taxdump
         ncbi_user_email: ${CLOUDGENE_USER_EMAIL}
         analyst_name: ${CLOUDGENE_USER_FULL_NAME}
@@ -36,7 +36,6 @@ workflow:
     - id: facility
       description: Your facility/site name
       type: string
-      value: QCIF
       details: Included in the workflow report.
     - id: merge
       description: Merge fastq files with the same sample name

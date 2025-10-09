@@ -977,6 +977,8 @@ process SUBSAMPLE {
 // Main workflow definition
 include { NANOPLOT as QC_PRE_DATA_PROCESSING } from './modules.nf'
 include { NANOPLOT as QC_POST_DATA_PROCESSING } from './modules.nf'
+include { COPY_INPUTS } from './modules.nf'
+
 
 workflow {
   TIMESTAMP_START ()
@@ -1055,6 +1057,10 @@ workflow {
       .map{ row-> tuple((row.sampleid), (row.target_gene)) }
       .filter { sampleid, target_gene -> !['COI', 'CO1'].contains(target_gene?.toUpperCase()) }
       .set{ ch_other }
+
+        
+    // Workaround for cloudgene deleting input files after workflow execution
+    COPY_INPUTS(params.samplesheet)
 
   } else { exit 1, "Input samplesheet file not specified!" }
 

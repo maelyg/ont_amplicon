@@ -96,3 +96,33 @@ process BLASTN {
   }
 }
 */
+
+process COPY_INPUTS {
+    tag "$samplesheet_file"
+    
+    input:
+    path samplesheet_file
+    
+    output:
+    path "samplesheet.csv", emit: samplesheet
+    
+    script:
+    """
+    # Copy input files to work directory to ensure they remain available
+    # after the workflow execution (workaround for cloudgene deleting input files after workflow execution)
+    # Use different temporary names first to avoid same-file copy errors
+    
+    if [ "${samplesheet_file}" != "samplesheet.csv" ]; then
+        cp "${samplesheet_file}" samplesheet.csv
+    else
+        # File already has correct name, just ensure it exists
+        if [ ! -f samplesheet.csv ]; then
+            echo "ERROR: samplesheet file not found" >&2
+            exit 1
+        fi
+    fi
+    
+    echo "Successfully prepared input files in work directory"
+    echo "samplesheet file: \$(wc -l < samplesheet.csv) lines"
+    """
+}
