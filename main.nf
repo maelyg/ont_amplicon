@@ -89,72 +89,21 @@ def helpMessage () {
 
     """.stripIndent()
 }
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
-}
-if (params.blastn_db != null) {
-    blastn_db_name = file(params.blastn_db).name
-    blastn_db_dir = file(params.blastn_db).parent
-}
-if (params.blastn_COI != null) {
-    blastn_COI_name = file(params.blastn_COI).name
-    blastn_COI_dir = file(params.blastn_COI).parent
-}
-
-//if (params.taxdump != null) {
-//    taxdump_dir = file(params.taxdump).parent
-//}
-
-//if (params.reference != null) {
-//    reference_name = file(params.reference).name
- //   reference_dir = file(params.reference).parent
-//}
-//if (params.host_fasta != null) {
-//   host_fasta_dir = file(params.host_fasta).parent
-//}
-
-if (params.porechop_custom_primers == true) {
-    porechop_custom_primers_dir = file(params.porechop_custom_primers_path).parent
-}
 
 def isNonEmptyFile(file) {
     return file.exists() && file.size() > 0
 }
 
-switch (workflow.containerEngine) {
-  case "singularity":
-    bindbuild = "";
-    if (params.blastn_db != null) {
-      bindbuild = (bindbuild + "-B ${blastn_db_dir} ")
-    }
-    if (params.blastn_COI != null) {
-      bindbuild = (bindbuild + "-B ${blastn_COI_dir} ")
-    }
-    if (params.taxdump != null) {
-      bindbuild = (bindbuild + "-B ${params.taxdump} ")
-    }
-//    if (params.reference != null) {
-//      bindbuild = (bindbuild + "-B ${reference_dir} ")
-//    }
-//   if (params.host_fasta != null) {
-//      bindbuild = (bindbuild + "-B ${host_fasta_dir} ")
-//    }
-    bindOptions = bindbuild;
-    break;
-  default:
-    bindOptions = "";
-}
 
 process BLASTN {
-  publishDir "${params.outdir}/${sampleid}/04_megablast", mode: 'copy', pattern: '{*_megablast_top_10_hits.txt,*_blast_status.txt}'
+  publishDir { "${params.outdir}/${sampleid}/04_megablast" }, mode: 'copy', pattern: '{*_megablast_top_10_hits.txt,*_blast_status.txt}'
   tag "${sampleid}"
-  containerOptions "${bindOptions}"
+  //containerOptions "${bindOptions}"
   label "setting_10"
 
   input:
     tuple val(sampleid), path(assembly)
+    tuple path(db_dir), val(db_name)
   output:
     path("${sampleid}*_megablast_top_10_hits.txt")
     path("${sampleid}_blast_status.txt")
@@ -168,13 +117,13 @@ process BLASTN {
     """
     STATUS="failed"
     echo "failed" > "${status_file}"
-    blastn -query ${assembly} \
-      -db ${params.blastn_db} \
-      -out ${tmp_blast_output} \
-      -evalue 1e-3 \
-      -word_size 28 \
-      -num_threads ${params.blast_threads} \
-      -outfmt '6 qseqid sgi sacc length nident pident mismatch gaps gapopen qstart qend qlen sstart send slen sstrand evalue bitscore qcovhsp stitle staxids qseq sseq sseqid qcovs qframe sframe' \
+    blastn -query ${assembly} \\
+      -db ${db_dir}/${db_name} \\
+      -out ${tmp_blast_output} \\
+      -evalue 1e-3 \\
+      -word_size 28 \\
+      -num_threads ${params.blast_threads} \\
+      -outfmt '6 qseqid sgi sacc length nident pident mismatch gaps gapopen qstart qend qlen sstart send slen sstrand evalue bitscore qcovhsp stitle staxids qseq sseq sseqid qcovs qframe sframe' \\
       -max_target_seqs 10
 
     cat <(printf "qseqid\tsgi\tsacc\tlength\tnident\tpident\tmismatch\tgaps\tgapopen\tqstart\tqend\tqlen\tsstart\tsend\tslen\tsstrand\tevalue\tbitscore\tqcovhsp\tstitle\tstaxids\tqseq\tsseq\tsseqid\tqcovs\tqframe\tsframe\n") ${tmp_blast_output} > ${blast_output}
@@ -189,7 +138,6 @@ process BLASTN {
 
 process BLASTN_COI {
   tag "${sampleid}"
-  containerOptions "${bindOptions}"
   label "setting_10"
 
   input:
@@ -200,13 +148,13 @@ process BLASTN_COI {
   script:
   def blast_output_COI = assembly.getBaseName() + "_megablast_COI_top_hit.txt"
     """
-    blastn -query ${assembly} \
-      -db ${params.blastn_COI} \
-      -out ${blast_output_COI} \
-      -evalue 1e-3 \
-      -num_threads ${params.blast_threads} \
-      -outfmt '6 qseqid sseqid length pident mismatch gapopen qstart qend sstart send evalue bitscore sstrand' \
-      -max_target_seqs 1 \
+    blastn -query ${assembly} \\
+      -db ${params.blastn_COI} \\
+      -out ${blast_output_COI} \\
+      -evalue 1e-3 \\
+      -num_threads ${params.blast_threads} \\
+      -outfmt '6 qseqid sseqid length pident mismatch gapopen qstart qend sstart send evalue bitscore sstrand' \\
+      -max_target_seqs 1 \\
       -max_hsps 1
 
     if [[ ! -s ${blast_output_COI} ]];
@@ -219,13 +167,13 @@ process BLASTN_COI {
 }
 
 process BLASTN2 {
-  publishDir "${params.outdir}/${sampleid}/04_megablast", mode: 'copy', pattern: '{*_megablast_top_10_hits.txt,*_blast_status.txt}'
+  publishDir { "${params.outdir}/${sampleid}/04_megablast" }, mode: 'copy', pattern: '{*_megablast_top_10_hits.txt,*_blast_status.txt}'
   tag "${sampleid}"
-  containerOptions "${bindOptions}"
   label "setting_10"
 
   input:
     tuple val(sampleid), path(assembly), val(target_gene)
+    tuple path(db_dir), val(db_name)
   output:
     path("${sampleid}*_megablast_top_10_hits.txt")
     path("${sampleid}_blast_status.txt")
@@ -239,7 +187,7 @@ process BLASTN2 {
     STATUS="failed"
     echo "failed" > "${status_file}"
     blastn -query ${assembly} \
-      -db ${params.blastn_db} \
+      -db ${db_dir}/${db_name} \
       -out ${tmp_blast_output} \
       -evalue 1e-3 \
       -num_threads ${params.blast_threads} \
@@ -256,7 +204,7 @@ process BLASTN2 {
 }
 
 process CHOPPER {
-  publishDir "${params.outdir}/${sampleid}/00_preprocessing/chopper", pattern: '*_chopper.log', mode: 'link'
+  publishDir { "${params.outdir}/${sampleid}/00_preprocessing/chopper" }, pattern: '*_chopper.log', mode: 'link'
   tag "${sampleid}"
   label 'setting_3'
 
@@ -277,7 +225,7 @@ process CHOPPER {
 process COVSTATS {
   tag "$sampleid"
   label "setting_1"
-  publishDir "${params.outdir}/${sampleid}/05_mapping_to_consensus", mode: 'copy'
+  publishDir { "${params.outdir}/${sampleid}/05_mapping_to_consensus" }, mode: 'copy'
 
   input:
     tuple val(sampleid), path(bed), path(consensus), path(coverage), path(mapping_qual), path(top_hits), path(nanostats), val(target_size), path(reads_fasta), path(contig_seqids)
@@ -291,34 +239,11 @@ process COVSTATS {
     derive_coverage_stats.py --sample ${sampleid} --blastn_results ${top_hits} --nanostat ${nanostats} --coverage ${coverage} --bed ${bed} --target_size ${target_size} --contig_seqids ${contig_seqids} --reads_fasta ${reads_fasta} --consensus ${consensus} --mapping_quality ${mapping_qual}
     """
 }
-/*
-process EXTRACT_READS {
-  tag "${sampleid}"
-  label "setting_11"
-  publishDir "${params.outdir}/${sampleid}/host_filtering", mode: 'copy', pattern: '{*.fastq.gz,*reads_count.txt}'
 
-  input:
-  tuple val(sampleid), path(fastq), path(unaligned_ids)
-  output:
-  path("*reads_count.txt"), emit: read_counts
-  file("${sampleid}_unaligned_reads_count.txt")
-  file("${sampleid}_unaligned.fastq.gz")
-  tuple val(sampleid), path("*_unaligned.fastq"), emit: unaligned_fq
-
-  script:
-  """
-  seqtk subseq ${fastq} ${unaligned_ids} > ${sampleid}_unaligned.fastq
-  gzip -c ${sampleid}_unaligned.fastq > ${sampleid}_unaligned.fastq.gz
-
-  n_lines=\$(expr \$(cat ${sampleid}_unaligned.fastq | wc -l) / 4)
-  echo \$n_lines > ${sampleid}_unaligned_reads_count.txt
-  """
-}
-*/
 process CUTADAPT {
   tag "$sampleid"
   label "setting_1"
-  publishDir "${params.outdir}/${sampleid}/03_polishing", pattern: '{*.fasta,*_cutadapt.log}', mode: 'copy'
+  publishDir { "${params.outdir}/${sampleid}/03_polishing" }, pattern: '{*.fasta,*_cutadapt.log}', mode: 'copy'
   tag "${sampleid}"
   label 'setting_1'
 
@@ -327,8 +252,8 @@ process CUTADAPT {
     tuple val(sampleid), path(consensus), val(fwd_primer), val(rev_primer)
 
   output:
-    file("${sampleid}_cutadapt.log")
-    file("${sampleid}_final_polished_consensus.fasta")
+    path("${sampleid}_cutadapt.log")
+    path("${sampleid}_final_polished_consensus.fasta")
     tuple val(sampleid), path("${sampleid}_final_polished_consensus.fasta"), emit: trimmed
 
   script:
@@ -350,10 +275,10 @@ process CUTADAPT {
 process EXTRACT_BLAST_HITS {
   tag "${sampleid}"
   label "setting_1"
-  containerOptions "${bindOptions}"
 
   input:
     tuple val(sampleid), path(blast_results), path(status), val(target_organism), val(target_gene), val(target_size)
+    path(taxonkit_db)
 
   output:
     tuple val(sampleid), path("${sampleid}*_megablast_top_hits_tmp.txt"), emit: topblast
@@ -367,7 +292,7 @@ process EXTRACT_BLAST_HITS {
     """
     if [[ \$(wc -l < *_megablast_top_10_hits.txt) -ge 2 ]]
       then
-        select_top_blast_hit.py --sample_name ${sampleid} --blastn_results ${sampleid}*_top_10_hits.txt --target_organism ${target_organism_str} --taxonkit_database_dir ${params.taxdump}
+        select_top_blast_hit.py --sample_name ${sampleid} --blastn_results ${sampleid}*_top_10_hits.txt --target_organism ${target_organism_str} --taxonkit_database_dir ${taxonkit_db}
 
         # extract segment of consensus sequence that align to reference
         awk  -F  '\\t' 'NR>1 { printf ">%s\\n%s\\n",\$2,\$23 }' ${sampleid}*_top_hits_tmp.txt | sed 's/-//g' > ${sampleid}_final_polished_consensus_match.fasta
@@ -384,7 +309,7 @@ process EXTRACT_BLAST_HITS {
 }
 
 process FASTCAT {
-  publishDir "${params.outdir}/${sampleid}/01_QC/fastcat", mode: 'copy'
+  publishDir { "${params.outdir}/${sampleid}/01_QC/fastcat" }, mode: 'copy'
   tag "${sampleid}"
   label "setting_1"
 
@@ -413,7 +338,7 @@ process FASTCAT {
 }
 
 process FASTQ2FASTA {
-  publishDir "${params.outdir}/${sampleid}/02_clustering", mode: 'copy', pattern: '*_rattle.fasta'
+  publishDir { "${params.outdir}/${sampleid}/02_clustering" }, mode: 'copy', pattern: '*_rattle.fasta'
   tag "${sampleid}"
   label "setting_1"
 
@@ -430,12 +355,12 @@ process FASTQ2FASTA {
 }
 
 process CLUSTER2FASTA {
-  publishDir "${params.outdir}/${sampleid}/02_clustering", mode: 'copy', pattern: '*_rattle.fasta'
+  publishDir { "${params.outdir}/${sampleid}/02_clustering" }, mode: 'copy', pattern: '*_rattle.fasta'
   tag "${sampleid}"
   label "setting_1"
 
   input:
-    tuple val(sampleid), path(fastq), path(assembly), path(status)
+    tuple val(sampleid), path(fastq), path(assembly), val(status)
 
   output:
     tuple val(sampleid), path(fastq), path("${sampleid}_rattle.fasta"), emit: fasta
@@ -458,13 +383,13 @@ process CLUSTER2FASTA {
 process FASTA2TABLE {
   tag "$sampleid"
   label "setting_1"
-  publishDir "${params.outdir}/${sampleid}/04_megablast", mode: 'copy'
+  publishDir { "${params.outdir}/${sampleid}/04_megablast" }, mode: 'copy'
 
   input:
     tuple val(sampleid), path(tophits), path(fasta)
   output:
-    file("${sampleid}*_megablast_top_hits.txt")
-    tuple val(sampleid), file("${sampleid}*_megablast_top_hits.txt"), emit: blast_results
+    path("${sampleid}*_megablast_top_hits.txt")
+    tuple val(sampleid), path("${sampleid}*_megablast_top_hits.txt"), emit: blast_results
 
   script:
     """
@@ -475,7 +400,7 @@ process FASTA2TABLE {
 //If Racon polishing failed or produced an empty file, then Medaka will be run on the Rattle assembly.
 //If Medaka polishing fails, then the script will run samtools consensus to produce a consensus sequence from the Rattle assembly.
 process MEDAKA2 {
-  publishDir "${params.outdir}/${sampleid}/03_polishing", mode: 'copy', pattern: '{*_consensus.fasta,*_consensus.fastq,*log}'
+  publishDir { "${params.outdir}/${sampleid}/03_polishing" }, mode: 'copy', pattern: '{*_consensus.fasta,*_consensus.fastq,*log}'
   tag "${sampleid}"
   label 'setting_3'
 
@@ -490,7 +415,7 @@ process MEDAKA2 {
    path("${sampleid}_samtools_consensus.log"), optional: true
    tuple val(sampleid), path("${sampleid}_medaka_consensus.fasta"), path("${sampleid}_medaka_consensus.bam"), path("${sampleid}_medaka_consensus.bam.bai"), path("${sampleid}_samtools_consensus.fasta")
    tuple val(sampleid), path("${sampleid}_medaka_consensus.fasta"), path("${sampleid}_medaka_consensus.bam"), path("${sampleid}_medaka_consensus.bam.bai"), emit: consensus1
-   tuple val(sampleid), path(rattle_assembly), path("${sampleid}_samtools_consensus.fasta"), env(STATUS), emit: consensus2
+   tuple val(sampleid), path(rattle_assembly), path("${sampleid}_samtools_consensus.fasta"), eval("cat ${sampleid}_samtools_status.txt"), emit: consensus2
 
   script:
     """
@@ -546,13 +471,12 @@ process MEDAKA2 {
 process MINIMAP2_CONSENSUS {
   tag "${sampleid}"
   label 'setting_2'
-  containerOptions "${bindOptions}"
 
   input:
     tuple val(sampleid), path(consensus), path(fastq)
 
   output:
-    tuple val(sampleid), path(consensus), file("${sampleid}_aln.sam"), emit: aligned_sample
+    tuple val(sampleid), path(consensus), path("${sampleid}_aln.sam"), emit: aligned_sample
 
   script:
     """
@@ -590,13 +514,12 @@ process MINIMAP2_RACON {
 process MINIMAP2_REF {
   tag "${sampleid}"
   label 'setting_2'
-  containerOptions "${bindOptions}"
 
   input:
     tuple val(sampleid), path(ref), path(fastq)
 
   output:
-    tuple val(sampleid), path(ref), file("${sampleid}_ref_aln.sam"), emit: aligned_sample
+    tuple val(sampleid), path(ref), path("${sampleid}_ref_aln.sam"), emit: aligned_sample
 
   script:
     """
@@ -649,16 +572,16 @@ process PYFAIDX {
 
 process PORECHOP_ABI {
   tag "${sampleid}"
-  publishDir "$params.outdir/${sampleid}/00_preprocessing/porechop",  mode: 'copy', pattern: '*_porechop.log'
+  publishDir { "$params.outdir/${sampleid}/00_preprocessing/porechop" },  mode: 'copy', pattern: '*_porechop.log'
   label "setting_2"
 
   input:
     tuple val(sampleid), path(sample)
 
   output:
-    file("${sampleid}_porechop_trimmed.fastq.gz")
-    file("${sampleid}_porechop.log")
-    tuple val(sampleid), file("${sampleid}_porechop_trimmed.fastq.gz"), emit: porechopabi_trimmed_fq
+    path("${sampleid}_porechop_trimmed.fastq.gz")
+    path("${sampleid}_porechop.log")
+    tuple val(sampleid), path("${sampleid}_porechop_trimmed.fastq.gz"), emit: porechopabi_trimmed_fq
 
   script:
   def porechop_options = (params.porechop_options) ? " ${params.porechop_options}" : ''
@@ -672,8 +595,7 @@ process PORECHOP_ABI {
 }
 
 process QCREPORT {
-  publishDir "${params.outdir}/00_QC_report", mode: 'copy', overwrite: true
-  containerOptions "${bindOptions}"
+  publishDir { "${params.outdir}/00_QC_report" }, mode: 'copy', overwrite: true
 
   input:
     path multiqc_files
@@ -694,7 +616,7 @@ process QCREPORT {
 //`--no-trimming` is added as it sometimes trims the consensus too aggressively. We trim the sequences downstream instead.
 
 process RACON {
-  publishDir "${params.outdir}/${sampleid}/03_polishing", mode: 'copy', pattern: '{*_racon_consensus.fasta,*.log}'
+  publishDir { "${params.outdir}/${sampleid}/03_polishing" }, mode: 'copy', pattern: '{*_racon_consensus.fasta,*.log}'
   tag "${sampleid}"
   label 'setting_2'
 
@@ -733,28 +655,30 @@ process RACON {
 process RATTLE {
   tag "${sampleid}"
   label 'setting_10'
-  publishDir "${params.outdir}/${sampleid}/02_clustering", mode: 'copy', pattern: '{*_rattle.log,*_rattle_status.txt}'
+  publishDir { "${params.outdir}/${sampleid}/02_clustering" }, mode: 'copy', pattern: '{*_rattle.log,*_rattle_status.txt}'
 
   input:
     tuple val(sampleid), path(fastq), val(target_size)
 
   output:
-    file("${sampleid}_rattle.log")
+    path("${sampleid}_rattle.log")
     path("${sampleid}_rattle_status.txt")
     tuple val(sampleid), path("${sampleid}_rattle_status.txt"), emit: status
-    tuple val(sampleid), path(fastq), path("transcriptome.fq"), path("${sampleid}_rattle_status.txt"), emit: clusters
+    tuple val(sampleid), path(fastq), path("transcriptome.fq"), eval("cat ${sampleid}_rattle_status.txt"), emit: clusters
 
   script:
-  def status_file = sampleid + "_rattle_status.txt"
+  def status_file =  "${sampleid}_rattle_status.txt"
   def rattle_clustering_options = params.rattle_clustering_options ?: ''
   def rattle_polishing_options = params.rattle_polishing_options ?: ''
+  def rattle_clustering_min_length_set
+
   if (params.rattle_clustering_min_length != null) {
     rattle_clustering_min_length_set = params.rattle_clustering_min_length
   }
   else {
-    if (target_size != null & target_size.toInteger() <= 300) {
+    if (target_size != null && target_size.toInteger() <= 300) {
       rattle_clustering_min_length_set = '100'}
-    else if (target_size != null & target_size.toInteger() > 300) {
+    else if (target_size != null && target_size.toInteger() > 300) {
       rattle_clustering_min_length_set = '150'}
     else {
       rattle_clustering_min_length_set = '150'}
@@ -790,7 +714,7 @@ process RATTLE {
 process REFORMAT {
   tag "${sampleid}"
   label "setting_3"
-  publishDir "$params.outdir/${sampleid}/00_preprocessing", mode: 'copy'
+  publishDir { "$params.outdir/${sampleid}/00_preprocessing" }, mode: 'copy'
 
   input:
     tuple val(sampleid), path(fastq)
@@ -807,10 +731,10 @@ process REFORMAT {
 }
 
 process REVCOMP {
-  publishDir "${params.outdir}/${sampleid}/04_megablast", mode: 'copy', pattern: '{*fasta}'
+  publishDir { "${params.outdir}/${sampleid}/04_megablast" }, mode: 'copy', pattern: '{*fasta}'
   tag "${sampleid}"
   label "setting_1"
-  containerOptions "${bindOptions}"
+  //containerOptions "${bindOptions}"
 
   input:
     tuple val(sampleid), path(contigs), path(ids_to_revcomp)
@@ -827,7 +751,7 @@ process REVCOMP {
 }
 
 process SAMTOOLS {
-  publishDir "${params.outdir}/${sampleid}/06_mapping_to_ref", mode: 'copy'
+  publishDir { "${params.outdir}/${sampleid}/06_mapping_to_ref" }, mode: 'copy'
   tag "${sampleid}"
   label 'setting_2'
 
@@ -852,7 +776,7 @@ process SAMTOOLS {
 }
 
 process SAMTOOLS_CONSENSUS {
-  publishDir "${params.outdir}/${sampleid}/05_mapping_to_consensus", mode: 'copy', pattern: '{*.bam,*.bai,*final_polished_consensus_match.*}'
+  publishDir { "${params.outdir}/${sampleid}/05_mapping_to_consensus" }, mode: 'copy', pattern: '{*.bam,*.bai,*final_polished_consensus_match.*}'
   tag "${sampleid}"
   label 'setting_2'
 
@@ -891,7 +815,7 @@ process SAMTOOLS_CONSENSUS {
 }
 
 process TIMESTAMP_START {
-  publishDir "${params.outdir}/01_pipeline_info", mode: 'copy', overwrite: true
+  publishDir { "${params.outdir}/01_pipeline_info" }, mode: 'copy', overwrite: true
   cache false
   output:
   path "*nextflow_start_timestamp.txt"
@@ -905,8 +829,8 @@ process TIMESTAMP_START {
 }
 
 process HTML_REPORT {
-  publishDir "${params.outdir}/${sampleid}/07_html_report", mode: 'copy', overwrite: true
-  containerOptions "${bindOptions}"
+  publishDir { "${params.outdir}/${sampleid}/07_html_report" }, mode: 'copy', overwrite: true
+  //containerOptions "${bindOptions}"
   label 'setting_3'
 
   input:
@@ -979,6 +903,46 @@ include { COPY_INPUTS } from './modules.nf'
 
 
 workflow {
+  def taxdump_path = params.taxdump
+
+    if (taxdump_path.startsWith('~/')) {
+        taxdump_path = "${System.getenv('HOME')}/${taxdump_path.substring(2)}"
+    }
+
+    ch_taxdump = Channel.fromPath(
+        taxdump_path,
+        checkIfExists: true
+    )
+  // Show help message
+  if (params.help) {
+    helpMessage()
+    exit 0
+  }
+  if (params.blastn_db != null) {
+      blastn_db_name = file(params.blastn_db).name
+      blastn_db_dir = file(params.blastn_db).parent
+  }
+  if (params.blastn_COI != null) {
+      blastn_COI_name = file(params.blastn_COI).name
+      blastn_COI_dir = file(params.blastn_COI).parent
+  }
+
+  //if (params.taxdump != null) {
+  //    taxdump_dir = file(params.taxdump).parent
+  //}
+
+  //if (params.reference != null) {
+  //    reference_name = file(params.reference).name
+  //   reference_dir = file(params.reference).parent
+  //}
+  //if (params.host_fasta != null) {
+  //   host_fasta_dir = file(params.host_fasta).parent
+  //}
+
+  if (params.porechop_custom_primers == true) {
+      porechop_custom_primers_dir = file(params.porechop_custom_primers_path).parent
+  }
+
   TIMESTAMP_START ()
   if (params.samplesheet) {
     Channel
@@ -1003,19 +967,26 @@ workflow {
       .map{ row->
       // Loop through required fields and check if any are null or empty
         def requiredFields = ['sampleid', 'target_organism', 'target_gene', 'target_size']
-        for (field in requiredFields) {
+        def missingField = requiredFields.find { field ->
             def value = row[field]
-            if (value == null || value.toString().trim() == '') {
-                exit 1, "ERROR: samplesheet is missing or has empty value for required field '${field}'."
-            }
+            value == null || value.toString().trim() == ''
         }
 
+        if (missingField) {
+            error "Samplesheet is missing or has empty value for required field '${missingField}'."
+        }
+
+
         def intFields = ['target_size']
-        for (field in intFields) {
+
+        intFields.each { field ->
             try {
                 row[field] = row[field].toInteger()
-            } catch (Exception e) {
-                throw new IllegalArgumentException("Invalid integer in field '${field}': '${row[field]}' in row: ${row}")
+            }
+            catch (Exception e) {
+                throw new IllegalArgumentException(
+                    "Invalid integer in field '${field}': '${row[field]}' in row: ${row}"
+                )
             }
         }
         def raw_val = row['target_organism']
@@ -1096,13 +1067,7 @@ workflow {
     }
 
   }
-  /*
-  else if ( params.analysis_mode == 'map2ref' ) {
-    if ( params.reference == null) {
-      error("Please provide the path to a reference fasta file with the parameter --reference.")
-      }
-  }
-  */
+  
   if (params.merge) {
     //Merge split fastq.gz files
     FASTCAT ( ch_sample )
@@ -1194,11 +1159,17 @@ workflow {
         ch_revcomp = (CUTADAPT.out.trimmed.join(BLASTN_COI.out.coi_blast_results))
         REVCOMP ( ch_revcomp )
         //Blast to NCBI nt database
-        BLASTN ( REVCOMP.out.revcomp )
+        ch_blast_db = Channel.value(
+            tuple(
+                file(params.blastn_db).parent,
+                file(params.blastn_db).name
+            )
+        )
+        BLASTN ( REVCOMP.out.revcomp, ch_blast_db )
 
         //Directly blast to NCBI nt database all other samples
         ch_other_for_blast = (CUTADAPT.out.trimmed.join(ch_other))
-        BLASTN2 ( ch_other_for_blast )
+        BLASTN2 ( ch_other_for_blast, ch_blast_db )
 
         //Merge blast results from all samples
         ch_blast_merged = BLASTN.out.blast_results.mix(BLASTN2.out.blast_results.ifEmpty([]))
@@ -1206,7 +1177,7 @@ workflow {
         //ch_blast_merged2 = ch_blast_merged.map { sampleid, blast_results, status -> [sampleid, blast_results] }
 
         //Extract top blast hit, assign taxonomy information to identify consensus that match target organism
-        EXTRACT_BLAST_HITS ( ch_blast_merged.join(ch_targets) )
+        EXTRACT_BLAST_HITS ( ch_blast_merged.join(ch_targets), ch_taxdump )
         //Add consensus sequence to blast results summary table
         FASTA2TABLE ( EXTRACT_BLAST_HITS.out.topblast.join(consensus) )
 
@@ -1256,15 +1227,6 @@ workflow {
           SAMTOOLS ( MINIMAP2_REF.out.aligned_sample )
         }
       }
-/*
-      //Perform direct alignment to a reference
-      else if ( params.analysis_mode == 'map2ref') {
-        MINIMAP2_REF ( final_fq )
-        SAMTOOLS ( MINIMAP2_REF.out.aligned_sample )
-        MEDAKA ( SAMTOOLS.out.sorted_sample )
-        FILTER_VCF ( MEDAKA.out.unfilt_vcf )
-      }
-*/
       else {
         error("Analysis mode (clustering) not specified with e.g. '--analysis_mode clustering' or via a detectable config file.")
       }
