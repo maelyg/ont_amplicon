@@ -420,6 +420,7 @@ process MEDAKA2 {
   script:
     """
     STATUS=failed
+    echo "failed" > ${sampleid}_samtools_status.txt
     if [[ ! -s ${rattle_assembly} ]];
       then
         touch ${sampleid}_medaka_consensus.fasta
@@ -448,6 +449,11 @@ process MEDAKA2 {
           touch ${sampleid}_medaka_consensus.bam.bai
           samtools consensus -f fasta -a -A -X r10.4_sup -o ${sampleid}_samtools_consensus.fasta ${rattle_assembly}
           samtools consensus -f fastq -a -A -X r10.4_sup -o ${sampleid}_samtools_consensus.fastq ${rattle_assembly}
+      
+          if [[ -s ${sampleid}_samtools_consensus.fasta ]]; then
+                echo "passed" > ${sampleid}_samtools_status.txt
+          fi
+      
       else
         cp ${sampleid}/calls_to_draft.bam ${sampleid}_medaka_consensus.bam
         cp ${sampleid}/calls_to_draft.bam.bai ${sampleid}_medaka_consensus.bam.bai
@@ -462,6 +468,7 @@ process MEDAKA2 {
         else
           echo "Samtools consensus ran succesfully." >> ${sampleid}_samtools_consensus.log
           STATUS=passed
+          echo "passed" > ${sampleid}_samtools_status.txt
         fi
       fi
     fi
@@ -573,7 +580,7 @@ process PYFAIDX {
 process PORECHOP_ABI {
   tag "${sampleid}"
   publishDir { "$params.outdir/${sampleid}/00_preprocessing/porechop" },  mode: 'copy', pattern: '*_porechop.log'
-  label "setting_2"
+  label "setting_10"
 
   input:
     tuple val(sampleid), path(sample)
@@ -951,14 +958,14 @@ workflow {
       //.map{ row-> tuple((row.sampleid), file(row.fastq_path)) }
       .map { row ->
         // Check required fields
-        if (!row.sampleid || !row.fastq_path)  {
+        if (!row.sampleid )  {
           exit 1, "ERROR: samplesheet is missing required fields for sample_id."
         }
         else if (!row.fastq_path)  {
           exit 1, "ERROR: samplesheet is missing required field for fastq_path."
         }
         // Return parsed row
-        tuple((row.sampleid), file(row.fastq_path)) }
+        tuple((row.sampleid), files(row.fastq_path)) }
       .set{ ch_sample }
 
     Channel
