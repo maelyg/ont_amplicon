@@ -402,7 +402,7 @@ process FASTA2TABLE {
 process MEDAKA2 {
   publishDir { "${params.outdir}/${sampleid}/03_polishing" }, mode: 'copy', pattern: '{*_consensus.fasta,*_consensus.fastq,*log}'
   tag "${sampleid}"
-  label 'setting_3'
+  label 'setting_4'
 
   input:
    tuple val(sampleid), path(fastq), path(rattle_assembly), path(assembly)
@@ -625,7 +625,7 @@ process QCREPORT {
 process RACON {
   publishDir { "${params.outdir}/${sampleid}/03_polishing" }, mode: 'copy', pattern: '{*_racon_consensus.fasta,*.log}'
   tag "${sampleid}"
-  label 'setting_2'
+  label 'setting_4'
 
   input:
    tuple val(sampleid), path(fastq), path(rattle_assembly), path(paf)
@@ -838,7 +838,7 @@ process TIMESTAMP_START {
 process HTML_REPORT {
   publishDir { "${params.outdir}/${sampleid}/07_html_report" }, mode: 'copy', overwrite: true
   //containerOptions "${bindOptions}"
-  label 'setting_3'
+  label 'setting_6'
 
   input:
     tuple val(sampleid), path(raw_nanoplot), path(filtered_nanoplot), path (rattle_status), path(consensus_fasta), path(top_blast_hits), path(blast_status), path(consensus_match_fasta), path(aln_sorted_bam), path(aln_sorted_bam_bai), path(blast_with_cov_stats),
