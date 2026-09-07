@@ -809,9 +809,9 @@ process SAMTOOLS_CONSENSUS {
       touch ${sampleid}_mapq.txt
       touch ${sampleid}_final_polished_consensus_match.fastq
     else
-      samtools view -S -F 4 ${sample} | cut -f1,3 | sort | uniq > ${sampleid}_contigs_reads_ids.txt
-      samtools view -Sb -F 4 ${sample} | samtools sort -o ${sampleid}_aln.sorted.bam
-      samtools index ${sampleid}_aln.sorted.bam
+      samtools view -@ ${task.cpus} -S -F 4 ${sample} | cut -f1,3 | sort | uniq > ${sampleid}_contigs_reads_ids.txt
+      samtools view -@ ${task.cpus} -Sb -F 4 ${sample} | samtools sort -@ ${task.cpus} -o ${sampleid}_aln.sorted.bam
+      samtools index -@ ${task.cpus} ${sampleid}_aln.sorted.bam
       samtools coverage ${sampleid}_aln.sorted.bam  > ${sampleid}_coverage.txt
       samtools coverage -A -w 50 ${sampleid}_aln.sorted.bam > ${sampleid}_histogram.txt
       samtools view ${sampleid}_aln.sorted.bam | awk '{mapq[\$3]+=\$5; count[\$3]++} END {for (chr in mapq) printf "%s\\t%.2f\\n", chr, mapq[chr]/count[chr]}' > ${sampleid}_mapq.txt
@@ -916,10 +916,7 @@ workflow {
         taxdump_path = "${System.getenv('HOME')}/${taxdump_path.substring(2)}"
     }
 
-    ch_taxdump = Channel.fromPath(
-        taxdump_path,
-        checkIfExists: true
-    )
+    ch_taxdump = file(taxdump_path, checkIfExists: true)
   // Show help message
   if (params.help) {
     helpMessage()
